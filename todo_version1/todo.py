@@ -1,38 +1,44 @@
 import datetime
+from dataclasses import dataclass, field
+from enum import Enum
 
+class TaskNotFoundError(Exception):
+    pass
+
+class TaskStatus(Enum):
+    TODO='todo'
+    IN_PROGRESS="in_progress"
+    DONE="done"
+    CANCELLED='cancelled'
+
+@dataclass
+class TaskFeatures:
+    deadline:int = None
+    priority: str = 'normal'
+    tags: list = field(default_factory=list)
+
+@dataclass
 class Task():
-    def __init__(self, title, completed=False, features=None):
-        self.title = title
-        self.completed = completed
+    title: str
+    completed: bool = False
+    status: TaskStatus = TaskStatus.TODO
+    features: TaskFeatures = field(default_factory=TaskFeatures)
+    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
-        if features is None:
-            features = TaskFeatures()
-        self.features = features
-        self.created_at = datetime.datetime.now()
-
-    def __str__(self):
+    @property
+    def display_info(self):
         status = "✔" if self.completed else " "
         date = self.created_at.strftime("%Y-%m-%d")
         return f"[{status}] {self.title} ({date})"
     
-    def __repr__(self):
-        return f"Task({self.title} | {self.completed} | {self.created_at})"
+    @property
+    def is_urgent(self):
+        return self.features.deadline is not None
     
     def mark_completed(self):
         self.completed = True
-
-    def is_urgent(self):
-        return self.features.deadline is not None
-
-class TaskFeatures:
-    def __init__(self, deadline=None, priority='normal', tags=None):
-        self.deadline = deadline
-        self.priority = priority
-        self.tags = tags or []
-        
-
-class TaskNotFoundError(Exception):
-    pass
+        self.status = TaskStatus.DONE
+       
 
 class TodoManager():
     total_managers_created = 0
@@ -112,9 +118,9 @@ class TaskStorage:
         found = False
 
         for i, task in enumerate(self.tasks, 1):
-            if task.is_urgent():
+            if task.is_urgent:
                 found = True
-                yield f"{i}. {task} | days till deadline: {task.features.deadline}"
+                yield f"{i}. {task.display_info} | days till deadline: {task.features.deadline}"
 
         if not found:
             raise ValueError("Нет срочных задач")
@@ -124,9 +130,9 @@ class TaskStorage:
             raise ValueError("Лист пустой")
         
         for i, task in enumerate(self.tasks, 1):
-            yield f"{i}. {task}"
+            yield f"{i}. {task.display_info}"
 
     def pending_tasks(self):
         for i, task in enumerate(self.tasks, 1):
             if not task.completed:           
-                yield f"{i}. {task}"
+                yield f"{i}. {task.display_info}"
